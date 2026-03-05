@@ -1,32 +1,46 @@
+# This trigger tells Azure to run on EVERY branch
 trigger:
-- dev
-- master
+  branches:
+    include:
+      - '*'
 
 pool:
   vmImage: 'ubuntu-latest'
 
+variables:
+  projectRoot: '$(System.DefaultWorkingDirectory)'
+
 steps:
-# 1. Set up the Java environment
 - task: JavaToolInstaller@0
   inputs:
     versionSpec: '17'
     jdkArchitectureOption: 'x64'
     jdkSourceOption: 'PreInstalled'
 
-# 2. Install Playwright browsers (This is the critical part for testers!)
-# We use the Maven exec plugin to tell Playwright to install its own browser binaries
-- script: mvn exec:java -e -Dexec.mainClass="com.microsoft.playwright.CLI" -Dexec.args="install-deps"
-  displayName: 'Install Playwright Browser Dependencies'
+# 1. Debug: List files to ensure we are in the correct directory
+- script: |
+    echo "Checking directory structure..."
+    ls -R
+  displayName: 'List Files for Debugging'
 
-# 3. Run the actual tests
+# 2. Build and Install Playwright
+# 'install --with-deps' handles both browser binaries and Linux OS dependencies
+- script: |
+    mvn install -DskipTests
+    mvn exec:java -e -Dexec.mainClass="com.microsoft.playwright.CLI" -Dexec.args="install --with-deps"
+  displayName: 'Install Playwright and Browsers'
+  workingDirectory: $(projectRoot)
+
+# 3. Run Tests
 - script: mvn test
   displayName: 'Run Playwright Java Tests'
+  workingDirectory: $(projectRoot)
 
-# 4. Report the results back to the Azure "Tests" tab
+# 4. Publish Results
 - task: PublishTestResults@2
   inputs:
     testResultsFormat: 'JUnit'
-    testResultsFiles: '**/TEST-*.xml'
+    testResultsFiles: '**/target/surefire-reports/TEST-*.xml'
     mergeTestResults: true
     failTaskOnFailedTests: true
-  displayName: 'Publish Test Results to Azure'
+  displayName: 'Publish Test Results'
