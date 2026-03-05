@@ -1,35 +1,32 @@
 trigger:
-  branches:
-    include:
-      - '*'   
-
-pr:
-  branches:
-    include:
-      - '*' 
+- dev
+- master
 
 pool:
   vmImage: 'ubuntu-latest'
 
-jobs:
-- job: BuildAndTest
-  displayName: 'Build and Test Java Project'
-  steps:
-  - checkout: self
-    displayName: 'Checkout repository'
+steps:
+# 1. Set up the Java environment
+- task: JavaToolInstaller@0
+  inputs:
+    versionSpec: '17'
+    jdkArchitectureOption: 'x64'
+    jdkSourceOption: 'PreInstalled'
 
-  - task: JavaToolInstaller@0
-    inputs:
-      versionSpec: '17'
-      jdkArchitectureOption: 'x64'
-      jdkSourceOption: 'PreInstalled'
-    displayName: 'Set up JDK 17'
+# 2. Install Playwright browsers (This is the critical part for testers!)
+# We use the Maven exec plugin to tell Playwright to install its own browser binaries
+- script: mvn exec:java -e -Dexec.mainClass="com.microsoft.playwright.CLI" -Dexec.args="install-deps"
+  displayName: 'Install Playwright Browser Dependencies'
 
-  - script: mvn clean install -DskipTests
-    displayName: 'Install dependencies'
+# 3. Run the actual tests
+- script: mvn test
+  displayName: 'Run Playwright Java Tests'
 
-  - script: mvn compile
-    displayName: 'Build project'
-
-  - script: mvn test
-    displayName: 'Run automated tests'
+# 4. Report the results back to the Azure "Tests" tab
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/TEST-*.xml'
+    mergeTestResults: true
+    failTaskOnFailedTests: true
+  displayName: 'Publish Test Results to Azure'
