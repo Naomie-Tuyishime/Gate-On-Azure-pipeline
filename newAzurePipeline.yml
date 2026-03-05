@@ -1,0 +1,36 @@
+trigger:
+  branches:
+    include:
+      - '*'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+# This variable ensures we are looking at the exact folder where pom.xml lives
+variables:
+  mavenSettings: '$(System.DefaultWorkingDirectory)'
+
+steps:
+- task: JavaToolInstaller@0
+  inputs:
+    versionSpec: '17'
+    jdkArchitectureOption: 'x64'
+    jdkSourceOption: 'PreInstalled'
+  displayName: 'Set up JDK 17'
+
+# We use the 'workingDirectory' parameter to force Maven to see the pom.xml
+- script: |
+    mvn install -DskipTests
+    mvn exec:java -e -Dexec.mainClass="com.microsoft.playwright.CLI" -Dexec.args="install --with-deps"
+  displayName: 'Install Playwright'
+  workingDirectory: $(mavenSettings)
+
+- script: mvn test
+  displayName: 'Run Tests'
+  workingDirectory: $(mavenSettings)
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/target/surefire-reports/TEST-*.xml'
+  condition: always()
