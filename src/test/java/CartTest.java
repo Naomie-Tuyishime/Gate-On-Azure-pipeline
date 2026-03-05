@@ -30,7 +30,6 @@ public class CartTest {
 
         Locator addToCartBtn = page.locator("a.add_to_cart_button").first();
         addToCartBtn.click();
-
         Locator viewCartLink = page.locator("a.added_to_cart.wc-forward");
         viewCartLink.click();
 
