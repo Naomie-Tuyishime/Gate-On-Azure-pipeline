@@ -1,0 +1,41 @@
+name: Playwright Java Test
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # DEBUG STEP: This tells us exactly what GitHub sees
+    - name: List Files
+      run: |
+        echo "Root directory content:"
+        ls -F
+        echo "Full recursive search for pom.xml:"
+        find . -name "pom.xml"
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Build and Install Playwright
+      run: |
+        # We find the pom.xml location and move there
+        POM_DIR=$(find . -name "pom.xml" -exec dirname {} \;)
+        cd "$POM_DIR"
+        mvn install -DskipTests
+        mvn exec:java -e -Dexec.mainClass="com.microsoft.playwright.CLI" -Dexec.args="install --with-deps"
+
+    - name: Run Tests
+      run: |
+        POM_DIR=$(find . -name "pom.xml" -exec dirname {} \;)
+        cd "$POM_DIR"
+        mvn test
