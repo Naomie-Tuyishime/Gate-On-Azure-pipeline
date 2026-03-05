@@ -1,4 +1,3 @@
-# This trigger tells Azure to run on EVERY branch
 trigger:
   branches:
     include:
@@ -7,9 +6,6 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
-variables:
-  projectRoot: '$(System.DefaultWorkingDirectory)'
-
 steps:
 - task: JavaToolInstaller@0
   inputs:
@@ -17,30 +13,32 @@ steps:
     jdkArchitectureOption: 'x64'
     jdkSourceOption: 'PreInstalled'
 
-# 1. Debug: List files to ensure we are in the correct directory
+# 1. THE DISCOVERY STEP: This will find where pom.xml actually is
 - script: |
-    echo "Checking directory structure..."
-    ls -R
-  displayName: 'List Files for Debugging'
+    echo "--- CURRENT LOCATION ---"
+    pwd
+    echo "--- SEARCHING FOR POM.XML ---"
+    find . -name "pom.xml"
+  displayName: 'Find pom.xml Location'
 
-# 2. Build and Install Playwright
-# 'install --with-deps' handles both browser binaries and Linux OS dependencies
+# 2. RUN MAVEN FROM THE CORRECT FOLDER
+# Note: I am using 'mvn -f' which allows us to point directly to the file
 - script: |
-    mvn install -DskipTests
-    mvn exec:java -e -Dexec.mainClass="com.microsoft.playwright.CLI" -Dexec.args="install --with-deps"
+    # This finds the pom.xml and runs maven using that file's path
+    POM_PATH=$(find . -name "pom.xml" | head -n 1)
+    echo "Using POM at: $POM_PATH"
+    
+    mvn -f "$POM_PATH" install -DskipTests
+    mvn -f "$POM_PATH" exec:java -e -Dexec.mainClass="com.microsoft.playwright.CLI" -Dexec.args="install --with-deps"
   displayName: 'Install Playwright and Browsers'
-  workingDirectory: $(projectRoot)
 
-# 3. Run Tests
-- script: mvn test
+- script: |
+    POM_PATH=$(find . -name "pom.xml" | head -n 1)
+    mvn -f "$POM_PATH" test
   displayName: 'Run Playwright Java Tests'
-  workingDirectory: $(projectRoot)
 
-# 4. Publish Results
 - task: PublishTestResults@2
   inputs:
     testResultsFormat: 'JUnit'
     testResultsFiles: '**/target/surefire-reports/TEST-*.xml'
-    mergeTestResults: true
-    failTaskOnFailedTests: true
   displayName: 'Publish Test Results'
