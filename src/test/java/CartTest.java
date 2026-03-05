@@ -28,7 +28,6 @@ public class CartTest {
 
         page.navigate("https://askomdch.com/");
 
-
         Locator addToCartBtn = page.locator("a.add_to_cart_button").first();
         addToCartBtn.click();
 
@@ -47,6 +46,7 @@ public class CartTest {
     }
     @AfterEach
     void closeContext() { context.close(); }
+
 
     @AfterAll
     static void closeBrowser() { playwright.close(); }
